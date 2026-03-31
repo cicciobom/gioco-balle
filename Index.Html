@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Only Ball Up - 3D Platformer</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #87CEEB;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        #hud {
+            padding: 20px;
+            font-size: 20px;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            width: calc(100% - 40px);
+        }
+
+        /* Nuovo design centrato per il popup del Bioma */
+        #biome-display {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.8);
+            text-align: center;
+            opacity: 0;
+            transition: opacity 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275), transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            pointer-events: none;
+            z-index: 90;
+            background: rgba(15, 23, 42, 0.85);
+            padding: 40px 60px;
+            border-radius: 20px;
+            border: 3px solid;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 15px 50px rgba(0,0,0,0.6);
+        }
+
+        #biome-display.show {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        #biome-display-subtitle {
+            font-size: 18px;
+            letter-spacing: 4px;
+            opacity: 0.9;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+            color: white;
+            text-shadow: none;
+        }
+
+        #biome-name {
+            font-size: 55px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        #checkpoint-msg {
+            color: #f1c40f;
+            font-size: 22px;
+            font-weight: bold;
+            opacity: 0;
+            transition: opacity 0.5s;
+            text-align: center;
+            position: absolute;
+            top: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.5);
+            padding: 10px 20px;
+            border-radius: 10px;
+            backdrop-filter: blur(5px);
+        }
+
+        /* Schermate di Menu */
+        #start-screen, #pause-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            pointer-events: auto;
+            transition: opacity 0.5s;
+            background: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.95));
+            backdrop-filter: blur(10px);
+            z-index: 50;
+        }
+
+        #pause-screen {
+            display: none;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 150;
+        }
+
+        h1 {
+            font-size: 64px;
+            margin-bottom: 10px;
+            color: #ffffff;
+            text-shadow: 0 0 20px rgba(0, 210, 211, 0.8);
+            letter-spacing: 5px;
+            text-align: center;
+        }
+
+        p.subtitle {
+            font-size: 20px;
+            margin-bottom: 40px;
+            color: #dfe4ea;
+        }
+
+        .menu-buttons {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 30px;
+            align-items: center;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .menu-buttons.vertical {
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .btn-start, .btn-settings, .btn-customize {
+            padding: 15px 30px;
+            font-size: 18px;
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            text-transform: uppercase;
+            font-weight: bold;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn-normal { background: linear-gradient(45deg, #0abde3, #48dbfb); color: #222f3e; }
+        .btn-hardcore { background: linear-gradient(45deg, #ff4757, #ff6b81); color: white; }
+        .btn-settings { background: linear-gradient(45deg, #2ed573, #7bed9f); color: #2f3542; }
+        .btn-customize { background: linear-gradient(45deg, #9b59b6, #8e44ad); color: white; }
+        
+        .btn-play {
+            background: linear-gradient(45deg, #f1c40f, #f39c12);
+            color: #2f3542;
+            font-size: 24px;
+            padding: 20px 50px;
+        }
+
+        .btn-start:hover, .btn-settings:hover, .btn-customize:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.5);
+        }
+
+        /* Pannelli Impostazioni e Personalizzazione */
+        .modal-screen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(30, 39, 46, 0.98);
+            padding: 40px;
+            border-radius: 20px;
+            border: 2px solid #576574;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            pointer-events: auto;
+            color: white;
+            z-index: 200;
+            box-shadow: 0 10px 50px rgba(0,0,0,0.9);
+            width: 350px;
+        }
+
+        .modal-screen h2 { margin-top: 0; color: #7bed9f; margin-bottom: 30px; }
+        .modal-screen label { display: flex; justify-content: space-between; width: 100%; margin-bottom: 20px; font-size: 18px; align-items: center; }
+        .modal-screen input[type="range"] { width: 150px; }
+        .modal-screen input[type="color"] { width: 50px; height: 30px; border: none; cursor: pointer; background: none; }
+
+        /* Pannello Comandi In-Game */
+        #controls-panel {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(15, 23, 42, 0.6);
+            padding: 15px 20px;
+            border-radius: 12px;
+            border-right: 5px solid #0abde3;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            font-size: 14px;
+            line-height: 1.8;
+            color: #c8d6e5;
+            text-align: left;
+            backdrop-filter: blur(5px);
+            display: none; 
+        }
+
+        #controls-panel h3 {
+            color: #48dbfb;
+            margin-top: 0;
+            margin-bottom: 10px;
+            font-size: 16px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding-bottom: 5px;
+        }
+
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 8px;
+            height: 8px;
+            background-color: rgba(255, 255, 255, 0.9);
+            border: 2px solid rgba(0, 0, 0, 0.5);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            display: none;
+            z-index: 100;
+            box-shadow: 0 0 5px rgba(0,0,0,0.5);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui-layer">
+        <div id="crosshair"></div>
+        <div id="hud">
+            <div>Altezza: <span id="height-val">0</span>m | Bioma: <span id="current-biome-hud" style="color:#00d2d3;">🏙️ Città Sospesa</span></div>
+            <div id="mode-display"></div>
+        </div>
+        
+        <div id="biome-display">
+            <div id="biome-display-subtitle">Nuovo Bioma Raggiunto</div>
+            <div id="biome-name">🏙️ Città Sospesa</div>
+        </div>
+        <div id="checkpoint-msg">Checkpoint Raggiunto! Premi 'E' per tornare qui.</div>
+        
+        <div id="controls-panel">
+            <h3>🕹️ Comandi</h3>
+            <b>⌨️ W A S D</b> : Muovi<br>
+            <b>🚀 SPAZIO</b> : Salta<br>
+            <b>🔄 E</b> : Usa Checkpoint<br>
+            <b>🖱️ MOUSE</b> : Visuale<br>
+            <b>🔍 SCROLL</b> : Zoom +/-<br>
+            <b>⏸️ ESC</b> : Pausa
+        </div>
+
+        <div id="start-screen">
+            <h1>ONLY BALL UP</h1>
+            <p class="subtitle">Scegli la tua sfida e sali verso il cielo!</p>
+            
+            <div class="menu-buttons">
+                <button id="mode-toggle-btn" class="btn-start btn-normal" onclick="toggleMode()">MODALITÀ: NORMALE</button>
+                <button class="btn-start btn-play" onclick="startGame()">▶ GIOCA</button>
+                <button class="btn-customize" onclick="openCustomize()">🎨 PERSONALIZZA</button>
+                <button class="btn-settings" onclick="openSettings()">⚙️ OPZIONI</button>
+            </div>
+        </div>
+
+        <div id="pause-screen">
+            <h1 style="text-shadow: 0 0 20px #ff4757;">GIOCO IN PAUSA</h1>
+            <div class="menu-buttons vertical">
+                <button class="btn-start btn-play" style="font-size: 20px; padding: 15px 40px;" onclick="resumeGame()">▶ RIPRENDI</button>
+                <button class="btn-customize" onclick="openCustomize()">🎨 PERSONALIZZA</button>
+                <button class="btn-start btn-hardcore" onclick="quitToMenu()">🏠 MENU PRINCIPALE</button>
+            </div>
+        </div>
+
+        <!-- Menu Impostazioni -->
+        <div id="settings-screen" class="modal-screen">
+            <h2>⚙️ Opzioni</h2>
+            <label>Sensibilità Mouse: <input type="range" min="1" max="10" value="5"></label>
+            <label>Volume Suoni: <input type="range" min="0" max="100" value="50"></label>
+            <button class="btn-start btn-normal" style="margin-top: 30px;" onclick="closeModals()">Chiudi</button>
+        </div>
+
+        <!-- Menu Personalizzazione Pallina -->
+        <div id="customize-screen" class="modal-screen">
+            <h2>🎨 Personalizza</h2>
+            <label>Colore: <input type="color" id="ball-color" value="#ff4757" onchange="applyCustomization()"></label>
+            <label>Metallo: <input type="range" id="ball-metal" min="0" max="1" step="0.1" value="0.8" onchange="applyCustomization()"></label>
+            <label>Rimbalzo: <input type="range" id="ball-bounce" min="0" max="1" step="0.1" value="0.5" onchange="applyCustomization()"></label>
+            <p style="font-size:12px; color:#a4b0be; text-align:center;">Aumenta il rimbalzo per salti realistici, abbassalo per maggiore controllo!</p>
+            <button class="btn-start btn-normal" style="margin-top: 20px;" onclick="closeModals()">Applica e Chiudi</button>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js"></script>
+
+    <script>
+        // --- CONFIGURAZIONE, BIOMI E VARIABILI GLOBALI ---
+        
+        // Struttura dei Biomi con Emoji!
+        const BIOMES = [
+            { name: "Città Sospesa", emoji: "🏙️", bg: 0x87CEEB, grid: '#00d2d3', plat: 0xffffff, obs: 0xff0000 },
+            { name: "Tramonto Rosso", emoji: "🌇", bg: 0xff6b6b, grid: '#ff9ff3', plat: 0xffeaa7, obs: 0x2d3436 },
+            { name: "Spazio Profondo", emoji: "🌌", bg: 0x0a0a2a, grid: '#9b59b6', plat: 0x8e44ad, obs: 0xf1c40f },
+            { name: "Foresta Tossica", emoji: "☣️", bg: 0x2d3436, grid: '#badc58', plat: 0x6ab04c, obs: 0xeb4d4b },
+            { name: "Abisso Glaciale", emoji: "❄️", bg: 0x487eb0, grid: '#00a8ff', plat: 0x00a8ff, obs: 0xfff200 },
+            { name: "Inferno di Lava", emoji: "🌋", bg: 0xb33939, grid: '#ff5252', plat: 0xff793f, obs: 0x2c2c54 },
+            { name: "Olimpo Dorato", emoji: "🏛️", bg: 0xf1c40f, grid: '#fff200', plat: 0xffffff, obs: 0x34495e }
+        ];
+
+        let scene, camera, renderer, world;
+        let ballBody, ballMesh;
+        let platforms = [];
+        let movingObstacles = [];
+        let flags = [];
+        let keys = { w: false, a: false, s: false, d: false, space: false, e: false };
+        let isGameRunning = false;
+        let isPaused = false;
+        let lastTime = performance.now();
+        
+        let gameMode = 'normal'; 
+        let checkpoints = []; 
+        let activeCheckpointIndex = 0;
+        let maxCheckpointReached = 0; // Traccia il record massimo per mostrare le notifiche solo 1 volta
+
+        let biomeTextures = [];
+        let targetBgColor = new THREE.Color(BIOMES[0].bg);
+        let currentBgColor = new THREE.Color(BIOMES[0].bg);
+
+        let cameraRadius = 12;
+        let cameraAzimuth = 0; 
+        let cameraElevation = 0.3; 
+        const MIN_ELEVATION = 0.05; 
+        const MAX_ELEVATION = Math.PI / 2.1;
+        const MIN_RADIUS = 3;
+        const MAX_RADIUS = 25;
+
+        const BALL_RADIUS = 0.8; 
+        const MOVE_FORCE = 22; 
+        const JUMP_FORCE = 18; 
+
+        // Genera texture griglia
+        function createGridTexture(neonColor) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 1024;
+            canvas.height = 1024;
+            const ctx = canvas.getContext('2d');
+            
+            ctx.fillStyle = '#1e272e';
+            ctx.fillRect(0, 0, 1024, 1024);
+            
+            ctx.shadowColor = neonColor;
+            ctx.shadowBlur = 15;
+            ctx.strokeStyle = neonColor;
+            ctx.lineWidth = 12;
+            ctx.strokeRect(10, 10, 1004, 1004);
+            ctx.shadowBlur = 0; 
+
+            ctx.strokeStyle = neonColor;
+            ctx.globalAlpha = 0.3;
+            ctx.lineWidth = 3;
+            for(let i = 1; i < 10; i++) {
+                ctx.beginPath();
+                ctx.moveTo(i * 102.4, 0); ctx.lineTo(i * 102.4, 1024);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(0, i * 102.4); ctx.lineTo(1024, i * 102.4);
+                ctx.stroke();
+            }
+            ctx.globalAlpha = 1.0;
+
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.wrapS = THREE.RepeatWrapping;
+            tex.wrapT = THREE.RepeatWrapping;
+            if (renderer) tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+            return tex;
+        }
+
+        window.onload = init;
+
+        function init() {
+            scene = new THREE.Scene();
+            scene.background = currentBgColor.clone(); 
+            scene.fog = new THREE.FogExp2(currentBgColor.getHex(), 0.015);
+
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.outputEncoding = THREE.sRGBEncoding; 
+            document.body.appendChild(renderer.domElement);
+
+            const ambientLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.7);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 1.0); 
+            dirLight.position.set(20, 100, 20); 
+            dirLight.castShadow = true;
+            dirLight.shadow.camera.top = 100;
+            dirLight.shadow.camera.bottom = -100;
+            dirLight.shadow.camera.left = -100;
+            dirLight.shadow.camera.right = 100;
+            dirLight.shadow.bias = -0.001; 
+            dirLight.shadow.mapSize.width = 4096; 
+            dirLight.shadow.mapSize.height = 4096;
+            scene.add(dirLight);
+
+            biomeTextures = BIOMES.map(b => createGridTexture(b.grid));
+
+            world = new CANNON.World();
+            world.gravity.set(0, -15.0, 0); 
+            world.broadphase = new CANNON.NaiveBroadphase();
+            world.solver.iterations = 10;
+            
+            // FISICA DEL RIMBALZO AGGIORNATA
+            world.defaultContactMaterial.friction = 1.0; 
+            world.defaultContactMaterial.restitution = 0.5; // Restituzione base = Rimbalzo realistico!
+
+            const ballShape = new CANNON.Sphere(BALL_RADIUS);
+            ballBody = new CANNON.Body({ mass: 1.2, shape: ballShape });
+            ballBody.position.set(0, 5, 0);
+            ballBody.linearDamping = 0.1; 
+            ballBody.angularDamping = 0.1;
+            world.addBody(ballBody);
+
+            const ballGeo = new THREE.SphereGeometry(BALL_RADIUS, 64, 64);
+            const ballTexMat = new THREE.MeshPhysicalMaterial({ 
+                color: 0xff4757, roughness: 0.1, metalness: 0.8, clearcoat: 1.0, clearcoatRoughness: 0.1
+            });
+            ballMesh = new THREE.Mesh(ballGeo, ballTexMat);
+            ballMesh.castShadow = true;
+            ballMesh.receiveShadow = true;
+            scene.add(ballMesh);
+
+            ballBody.addEventListener("collide", function(e) {
+                if (e.body.isDeadly) die();
+            });
+
+            // Avvia setup ma non genera ancora la mappa fissa (sarà generata su "Gioca")
+            setupControls();
+            window.addEventListener('resize', onWindowResize, false);
+            
+            // Generazione iniziale per il menu
+            generateRandomMap();
+            
+            animate();
+        }
+
+        function applyCustomization() {
+            const color = document.getElementById('ball-color').value;
+            const metal = document.getElementById('ball-metal').value;
+            const bounce = document.getElementById('ball-bounce').value;
+
+            // Aggiorna Grafica
+            ballMesh.material.color.set(color);
+            ballMesh.material.metalness = parseFloat(metal);
+            
+            // Aggiorna Fisica (Rimbalzo)
+            world.defaultContactMaterial.restitution = parseFloat(bounce);
+        }
+
+        function clearMap() {
+            platforms.forEach(p => { world.removeBody(p.body); scene.remove(p.mesh); });
+            movingObstacles.forEach(o => { world.removeBody(o.body); scene.remove(o.mesh); });
+            flags.forEach(f => { scene.remove(f); });
+            
+            platforms = [];
+            movingObstacles = [];
+            flags = [];
+            checkpoints = [];
+        }
+
+        function createFlag(x, y, z) {
+            const poleGeo = new THREE.CylinderGeometry(0.1, 0.1, 4);
+            const poleMat = new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 0.8, roughness: 0.2 });
+            const pole = new THREE.Mesh(poleGeo, poleMat);
+            pole.position.set(x, y + 2, z);
+            pole.castShadow = true;
+            scene.add(pole);
+            flags.push(pole);
+
+            const clothGeo = new THREE.BoxGeometry(1.5, 1, 0.1);
+            const clothMat = new THREE.MeshStandardMaterial({ color: 0xff4757, roughness: 0.9 });
+            const cloth = new THREE.Mesh(clothGeo, clothMat);
+            cloth.position.set(x + 0.85, y + 3.3, z); 
+            cloth.castShadow = true;
+            scene.add(cloth);
+            flags.push(cloth);
+        }
+
+        function generateRandomMap() {
+            clearMap();
+
+            // Checkpoint 0 (Base sempre al centro)
+            createPlatform(0, 0, 0, 16, 1, 16, new THREE.Color(BIOMES[0].plat), 0);
+            checkpoints.push(new CANNON.Vec3(0, 5, 0));
+
+            let currentY = 2;
+            let angle = 0;
+            let radius = 10;
+            let nextTargetHeightForCheckpoint = 80; 
+            let currentBiomeGenIdx = 0;
+
+            for (let i = 1; i <= 200; i++) {
+                // ALGORITMO PROCEDURALE CON MATH.RANDOM() PER MAPPE UNICHE
+                angle += 0.4 + (Math.random() * 0.4); // Angolazione variabile tra salti
+                radius = 12 + (i * 0.15) + (Math.random() * 3 - 1.5); // Raggio variabile
+                currentY += 5.5 + (Math.random() * 2); // Altezze variabili
+
+                let currentX = Math.cos(angle) * radius;
+                let currentZ = Math.sin(angle) * radius;
+
+                // Piattaforme leggermente più grandi di base per bilanciare il rimbalzo
+                let w = 8 + (Math.random() * 2); 
+                let d = 8 + (Math.random() * 2); 
+                let h = 0.5;
+
+                // Genera Isola Checkpoint
+                if (currentY >= nextTargetHeightForCheckpoint) {
+                    currentBiomeGenIdx++;
+                    w = 18; d = 18; // Isole enormi e sicure
+                    let cpColor = new THREE.Color(0xf1c40f); 
+                    checkpoints.push(new CANNON.Vec3(currentX, currentY + 3, currentZ));
+                    nextTargetHeightForCheckpoint += 80;
+
+                    let bIdx = Math.min(currentBiomeGenIdx - 1, BIOMES.length - 1);
+                    createPlatform(currentX, currentY, currentZ, w, h, d, cpColor, bIdx);
+                    createFlag(currentX + (w/2) - 2, currentY + 0.5, currentZ + (d/2) - 2);
+                    continue; 
+                }
+
+                // Genera piattaforma standard nel bioma
+                let activeGenBiomeIdx = Math.min(currentBiomeGenIdx, BIOMES.length - 1);
+                let color = new THREE.Color(BIOMES[activeGenBiomeIdx].plat);
+                color.offsetHSL(0, 0, (i % 5) * 0.02 - 0.04); 
+
+                createPlatform(currentX, currentY, currentZ, w, h, d, color, activeGenBiomeIdx);
+
+                // Ostacoli Casuali
+                if (i > 5 && Math.random() < 0.25) {
+                    let isMoving = Math.random() > 0.4;
+                    let moveAxis = (Math.random() > 0.5) ? 'x' : 'z';
+                    createDeadlyObstacle(currentX, currentY + 0.5, currentZ, 3, 1, 3, isMoving, moveAxis, activeGenBiomeIdx);
+                }
+            }
+        }
+
+        function createDeadlyObstacle(x, y, z, w, h, d, isMoving, moveAxis, biomeIdx) {
+            const shape = new CANNON.Box(new CANNON.Vec3(w/2, h/2, d/2));
+            const body = new CANNON.Body({ mass: 0, shape: shape });
+            body.position.set(x, y, z);
+            body.isDeadly = true; 
+            world.addBody(body);
+
+            let obsColor = BIOMES[biomeIdx].obs;
+            const geo = new THREE.BoxGeometry(w, h, d);
+            const mat = new THREE.MeshStandardMaterial({ 
+                color: obsColor, emissive: obsColor, emissiveIntensity: 0.5, roughness: 0.2, metalness: 0.5 
+            });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.set(x, y, z);
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            scene.add(mesh);
+
+            if (isMoving) {
+                movingObstacles.push({ body, mesh, baseX: x, baseZ: z, axis: moveAxis, timeOffset: Math.random() * 100 });
+            }
+        }
+
+        function createPlatform(x, y, z, w, h, d, color, biomeIdx) {
+            const shape = new CANNON.Box(new CANNON.Vec3(w/2, h/2, d/2));
+            const body = new CANNON.Body({ mass: 0, shape: shape }); 
+            body.position.set(x, y, z);
+            world.addBody(body);
+
+            const geo = new THREE.BoxGeometry(w, h, d);
+            const matTexture = biomeTextures[biomeIdx].clone();
+            matTexture.repeat.set(w / 4, d / 4);
+
+            const mat = new THREE.MeshStandardMaterial({ 
+                color: color, map: matTexture, roughness: 0.6, metalness: 0.2
+            });
+            
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.set(x, y, z);
+            mesh.receiveShadow = true;
+            mesh.castShadow = true;
+            scene.add(mesh);
+            
+            platforms.push({ mesh, body });
+        }
+
+        function die() {
+            const spawnPos = (gameMode === 'normal') ? checkpoints[activeCheckpointIndex] : checkpoints[0];
+            ballBody.position.copy(spawnPos);
+            ballBody.velocity.set(0, 0, 0);
+            ballBody.angularVelocity.set(0, 0, 0);
+        }
+
+        function showBiomeMessage(emoji, name, colorStr) {
+            const el = document.getElementById('biome-display');
+            document.getElementById('biome-name').innerText = `${emoji} ${name}`;
+            el.style.borderColor = colorStr;
+            el.style.boxShadow = `0 15px 50px rgba(0,0,0,0.8), 0 0 30px ${colorStr}`;
+            
+            // Animazione di apparizione morbida dal centro
+            el.classList.add('show');
+            
+            const hudEl = document.getElementById('current-biome-hud');
+            hudEl.innerText = `${emoji} ${name}`;
+            hudEl.style.color = colorStr;
+
+            setTimeout(() => { el.classList.remove('show'); }, 4500);
+        }
+
+        function showCheckpointMessage(text) {
+            const msg = document.getElementById('checkpoint-msg');
+            msg.innerText = text;
+            msg.style.opacity = '1';
+            setTimeout(() => { msg.style.opacity = '0'; }, 3000);
+        }
+
+        function setupControls() {
+            const handleKey = (e, isDown) => {
+                const key = e.key.toLowerCase();
+                if (key === 'w' || e.key === 'ArrowUp') keys.w = isDown;
+                if (key === 's' || e.key === 'ArrowDown') keys.s = isDown;
+                if (key === 'a' || e.key === 'ArrowLeft') keys.a = isDown;
+                if (key === 'd' || e.key === 'ArrowRight') keys.d = isDown;
+                if (key === ' ') keys.space = isDown;
+                if (key === 'e') keys.e = isDown;
+            };
+
+            window.addEventListener('keydown', (e) => handleKey(e, true));
+            window.addEventListener('keyup', (e) => handleKey(e, false));
+
+            document.body.addEventListener('click', () => {
+                if (isGameRunning && !isPaused && document.pointerLockElement !== document.body) {
+                    document.body.requestPointerLock();
+                }
+            });
+
+            document.addEventListener('pointerlockchange', () => {
+                const crosshair = document.getElementById('crosshair');
+                // Ignora se siamo in un modale
+                if(document.getElementById('settings-screen').style.display === 'flex' || 
+                   document.getElementById('customize-screen').style.display === 'flex') return;
+
+                if (document.pointerLockElement === document.body) {
+                    crosshair.style.display = 'block';
+                    if (isPaused) resumeGame(); 
+                } else {
+                    crosshair.style.display = 'none';
+                    if (isGameRunning && !isPaused) pauseGame(); 
+                }
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (document.pointerLockElement === document.body) {
+                    cameraAzimuth -= e.movementX * 0.004;
+                    cameraElevation += e.movementY * 0.004; 
+                    cameraElevation = Math.max(MIN_ELEVATION, Math.min(MAX_ELEVATION, cameraElevation));
+                }
+            });
+
+            document.addEventListener('wheel', (e) => {
+                if (document.pointerLockElement === document.body) {
+                    cameraRadius += e.deltaY * 0.02;
+                    cameraRadius = Math.max(MIN_RADIUS, Math.min(MAX_RADIUS, cameraRadius));
+                }
+            });
+        }
+
+        function toggleMode() {
+            const btn = document.getElementById('mode-toggle-btn');
+            if (gameMode === 'normal') {
+                gameMode = 'hardcore';
+                btn.innerText = "MODALITÀ: HARDCORE";
+                btn.className = "btn-start btn-hardcore";
+            } else {
+                gameMode = 'normal';
+                btn.innerText = "MODALITÀ: NORMALE";
+                btn.className = "btn-start btn-normal";
+            }
+        }
+
+        function startGame(selectedMode) {
+            if(selectedMode) gameMode = selectedMode;
+            document.getElementById('mode-display').innerText = (gameMode === 'normal') ? "Mod: NORMALE" : "Mod: HARDCORE";
+            document.getElementById('mode-display').style.color = (gameMode === 'normal') ? "#0abde3" : "#ff4757";
+
+            // Rigenera la mappa casuale per una nuova partita
+            generateRandomMap();
+
+            document.body.requestPointerLock(); 
+            document.getElementById('start-screen').style.opacity = '0';
+            setTimeout(() => {
+                document.getElementById('start-screen').style.display = 'none';
+                document.getElementById('controls-panel').style.display = 'block'; 
+                isGameRunning = true;
+                isPaused = false;
+                lastTime = performance.now();
+                activeCheckpointIndex = 0;
+                maxCheckpointReached = 0; // Azzera i record
+                
+                // Resetta Colori Iniziali
+                targetBgColor.setHex(BIOMES[0].bg);
+                currentBgColor.setHex(BIOMES[0].bg);
+                document.getElementById('current-biome-hud').innerText = `${BIOMES[0].emoji} ${BIOMES[0].name}`;
+                document.getElementById('current-biome-hud').style.color = BIOMES[0].grid;
+
+                die();
+            }, 500);
+        }
+
+        function pauseGame() {
+            isPaused = true;
+            document.getElementById('pause-screen').style.display = 'flex';
+            document.getElementById('controls-panel').style.display = 'none';
+        }
+
+        function resumeGame() {
+            isPaused = false;
+            document.getElementById('pause-screen').style.display = 'none';
+            document.getElementById('controls-panel').style.display = 'block';
+            lastTime = performance.now(); 
+            if (document.pointerLockElement !== document.body) {
+                document.body.requestPointerLock();
+            }
+        }
+
+        function quitToMenu() {
+            isGameRunning = false;
+            isPaused = false;
+            document.exitPointerLock();
+            document.getElementById('pause-screen').style.display = 'none';
+            document.getElementById('controls-panel').style.display = 'none';
+            document.getElementById('start-screen').style.display = 'flex';
+            setTimeout(() => { document.getElementById('start-screen').style.opacity = '1'; }, 50);
+        }
+
+        function openSettings() { document.getElementById('settings-screen').style.display = 'flex'; }
+        function openCustomize() { document.getElementById('customize-screen').style.display = 'flex'; }
+        
+        function closeModals() { 
+            document.getElementById('settings-screen').style.display = 'none'; 
+            document.getElementById('customize-screen').style.display = 'none'; 
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function updatePhysics(dt) {
+            if (!isGameRunning || isPaused) return;
+
+            const forward = new THREE.Vector3();
+            camera.getWorldDirection(forward);
+            forward.y = 0;
+            forward.normalize();
+
+            const right = new THREE.Vector3();
+            right.crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
+
+            const inputForce = new THREE.Vector3(0, 0, 0);
+            if (keys.w) inputForce.add(forward);
+            if (keys.s) inputForce.sub(forward);
+            if (keys.a) inputForce.sub(right); 
+            if (keys.d) inputForce.add(right); 
+
+            if (inputForce.length() > 0) {
+                inputForce.normalize().multiplyScalar(MOVE_FORCE);
+                ballBody.applyForce(new CANNON.Vec3(inputForce.x, 0, inputForce.z), ballBody.position);
+            } else {
+                ballBody.velocity.x *= 0.88;
+                ballBody.velocity.z *= 0.88;
+                ballBody.angularVelocity.x *= 0.88;
+                ballBody.angularVelocity.z *= 0.88;
+            }
+
+            // Aggiunta tolleranza per saltare anche se sta compiendo un piccolo rimbalzo
+            if (keys.space && Math.abs(ballBody.velocity.y) < 2.0) {
+                ballBody.velocity.y = JUMP_FORCE;
+                keys.space = false; 
+            }
+
+            if (keys.e && gameMode === 'normal') {
+                die();
+                keys.e = false; 
+            }
+
+            // GESTIONE CHECKPOINT E BIOMI "UNA TANTUM"
+            let detectedBiomeIndex = 0;
+            for(let i = checkpoints.length - 1; i >= 0; i--) {
+                if(ballBody.position.y >= checkpoints[i].y - 2) { 
+                    detectedBiomeIndex = i;
+                    break;
+                }
+            }
+
+            if (detectedBiomeIndex !== activeCheckpointIndex) {
+                // Notifica SOLO SE è un nuovo record mai raggiunto in questa partita
+                if (detectedBiomeIndex > maxCheckpointReached) {
+                    let newBiome = BIOMES[Math.min(detectedBiomeIndex, BIOMES.length - 1)];
+                    showBiomeMessage(newBiome.emoji, newBiome.name, newBiome.grid);
+                    
+                    if (gameMode === 'normal') {
+                        showCheckpointMessage("CHECKPOINT RAGGIUNTO! Premi 'E' per tornare qui.");
+                    }
+                    maxCheckpointReached = detectedBiomeIndex; // Aggiorna record!
+                }
+                
+                activeCheckpointIndex = detectedBiomeIndex;
+                let activeBiome = BIOMES[Math.min(activeCheckpointIndex, BIOMES.length - 1)];
+                
+                targetBgColor.setHex(activeBiome.bg);
+                
+                const hudEl = document.getElementById('current-biome-hud');
+                hudEl.innerText = `${activeBiome.emoji} ${activeBiome.name}`;
+                hudEl.style.color = activeBiome.grid;
+            }
+
+            const time = performance.now() * 0.002;
+            movingObstacles.forEach(obs => {
+                const offset = Math.sin(time + obs.timeOffset) * 2.5; 
+                if (obs.axis === 'x') obs.body.position.x = obs.baseX + offset;
+                else obs.body.position.z = obs.baseZ + offset;
+                obs.mesh.position.copy(obs.body.position);
+            });
+
+            world.step(1/60, dt);
+            ballMesh.position.copy(ballBody.position);
+            ballMesh.quaternion.copy(ballBody.quaternion);
+
+            if (ballBody.position.y < -20) die(); 
+        }
+
+        function updateCamera() {
+            const targetPos = ballMesh.position.clone();
+            const lookAtPos = targetPos.clone(); 
+            
+            const camX = targetPos.x + cameraRadius * Math.cos(cameraElevation) * Math.sin(cameraAzimuth);
+            const camY = targetPos.y + cameraRadius * Math.sin(cameraElevation);
+            const camZ = targetPos.z + cameraRadius * Math.cos(cameraElevation) * Math.cos(cameraAzimuth);
+
+            const desiredCameraPos = new THREE.Vector3(camX, camY, camZ);
+            
+            camera.position.lerp(desiredCameraPos, 0.2);
+            camera.lookAt(lookAtPos);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const now = performance.now();
+            const dt = (now - lastTime) / 1000;
+            lastTime = now;
+
+            updatePhysics(dt);
+            updateCamera();
+
+            currentBgColor.lerp(targetBgColor, 0.02);
+            scene.background = currentBgColor;
+            scene.fog.color = currentBgColor;
+
+            if (isGameRunning) {
+                const height = Math.max(0, Math.floor(ballBody.position.y));
+                document.getElementById('height-val').innerText = height;
+            }
+
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+</html>
